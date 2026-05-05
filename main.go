@@ -3,83 +3,75 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strings"
-	"sync"
-	"time"
 )
 
 func main() {
 	fmt.Println(os.Args)
 	if os.Args[1] == "server" {
-		// startServer()
-		spawnServer()
-	} else {
-		clientConnect(os.Args[2])
-	}
-}
-
-func spawnServer() {
-	var wg sync.WaitGroup
-	wg.Go(func() { startServer("10001") })
-	wg.Go(func() { startServer("10002") })
-	wg.Wait()
-}
-
-func startServer(port string) {
-	ln, _ := net.Listen("tcp", fmt.Sprintf(":%s", port))
-	conn, _ := ln.Accept() // Block until can
-	stream_rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
-	for {
-		// Read
-		header, _ := stream_rw.ReadByte()      // Block
-		data, _ := stream_rw.Peek(int(header)) // Block
-		fmt.Printf("Data from client: %s\n", data)
-		if strings.Trim(string(data), "\n ") == "bye" {
-			break
-		}
-		stream_rw.Discard(int(header))
-
-		time.Sleep(2000 * time.Millisecond)
-
-		// Write
-		stream_rw.WriteByte(byte(len(data)))
-		newData := fmt.Sprintf("Received from client: %s", string(data))
-		stream_rw.WriteString(newData)
-		stream_rw.Flush()
-	}
-
-	conn.Close()
-}
-
-func clientConnect(port string) {
-	conn, _ := net.Dial("tcp", fmt.Sprintf(":%s", port))
-	for {
-		// Read from stdin in a line
-		rd := bufio.NewReader(os.Stdin)
-		line, err := rd.ReadString('\n')
+		var broker = Broker{}
+		err := broker.startBrokerServer()
 		if err != nil {
-			return
+			fmt.Printf("Error starting broker: %v\n", err.Error())
 		}
-		fmt.Printf("Send to server: %s\n", line)
-		// Write to server
-		stream_rw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-		// [0 1 2 3 4 .. 1024]
-		stream_rw.WriteByte(byte(len(line)))
-		stream_rw.WriteString(line)
-		stream_rw.Flush()
-		if strings.Trim(line, "\n ") == "bye" {
-			break
-		}
+	} else {
+		clientConnectTCPAndEcho(10000)
+	}
+}
 
-		// Read
-		header, _ := stream_rw.ReadByte()
-		data, _ := stream_rw.Peek(int(header))
-		fmt.Printf("Data from server: %s\n", data)
-		stream_rw.Discard(int(header))
+func writeEchoToStream(streamRw *bufio.ReadWriter, data string) error {
+	var err error
+	err = streamRw.WriteByte(byte(len(data) + 1))
+	if err != nil {
+		return err
+	}
+	err = streamRw.WriteByte(ECHO)
+	if err != nil {
+		return err
+	}
+	_, err = streamRw.WriteString(data)
+	if err != nil {
+		return err
+	}
+	err = streamRw.Flush()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func clientConnectTCPAndEcho(port int) {
+	conn, _ := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	fmt.Printf("Connected to server at port %v\n", port)
+	// Read input from stdin and write to stream.
+	rd := bufio.NewReader(os.Stdin)
+	streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	line, err := rd.ReadString('\n')
+	if err != nil {
+		if err == io.EOF {
+			return
+		} else {
+			// Probably panic here
+		}
+	}
+	fmt.Printf("Sent to server: %s\n", line)
+	err = writeEchoToStream(streamRw, strings.Trim(line, "\n"))
+	if err != nil {
+		return
 	}
 
-	conn.Close()
+	// Try to read back from the stream
+	header, err := streamRw.ReadByte()
+	if header == 0 || err != nil {
+		return
+	}
+	data, _ := streamRw.Peek(int(header)) // Read exactly n bytes
+	fmt.Printf("Receive message from server: %s\n", data)
+	_, err = streamRw.Discard(int(header))
+	if err != nil {
+		return
+	} // Throw n bytes away
 }
