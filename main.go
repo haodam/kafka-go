@@ -6,7 +6,6 @@ import (
 	"io"
 	"net"
 	"os"
-	"strings"
 )
 
 func main() {
@@ -20,27 +19,6 @@ func main() {
 	} else {
 		clientConnectTCPAndEcho(10000)
 	}
-}
-
-func writeEchoToStream(streamRw *bufio.ReadWriter, data string) error {
-	var err error
-	err = streamRw.WriteByte(byte(len(data) + 1))
-	if err != nil {
-		return err
-	}
-	err = streamRw.WriteByte(ECHO)
-	if err != nil {
-		return err
-	}
-	_, err = streamRw.WriteString(data)
-	if err != nil {
-		return err
-	}
-	err = streamRw.Flush()
-	if err != nil {
-		return err
-	}
-	return nil
 }
 
 func clientConnectTCPAndEcho(port int) {
@@ -57,21 +35,17 @@ func clientConnectTCPAndEcho(port int) {
 			// Probably panic here
 		}
 	}
-	fmt.Printf("Sent to server: %s\n", line)
-	err = writeEchoToStream(streamRw, strings.Trim(line, "\n"))
-	if err != nil {
-		return
+	message := Message{
+		ECHO: &line,
 	}
-
+	err = writeMessageToStream(streamRw, message)
+	if err != nil {
+		panic(err)
+	}
 	// Try to read back from the stream
-	header, err := streamRw.ReadByte()
-	if header == 0 || err != nil {
-		return
-	}
-	data, _ := streamRw.Peek(int(header)) // Read exactly n bytes
-	fmt.Printf("Receive message from server: %s\n", data)
-	_, err = streamRw.Discard(int(header))
+	resp, err := readMessageFromStream(streamRw)
 	if err != nil {
-		return
-	} // Throw n bytes away
+		panic(err)
+	}
+	fmt.Printf("Receive message from server: %s\n", *resp.ResponseEcho)
 }

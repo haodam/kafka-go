@@ -8,56 +8,6 @@ import (
 
 const BrokerPort = 10000
 
-const (
-	ECHO = 1
-	// Other message types
-)
-
-type Message struct {
-	ECHO *string
-	// Other type here...
-}
-
-func readFromStream(streamRw *bufio.ReadWriter) ([]byte, error) {
-	var err error
-	// Read
-	header, err := streamRw.ReadByte() // Block
-	if err != nil {
-		return nil, err
-	}
-
-	data, err := streamRw.Peek(int(header)) // Block
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = streamRw.Discard(int(header))
-	if err != nil {
-		return nil, err
-	}
-
-	return data, err
-}
-
-func writeToStream(streamRw *bufio.ReadWriter, data string) error {
-	var err error
-	// Write
-	err = streamRw.WriteByte(byte(len(data)))
-	if err != nil {
-		return err
-	}
-	_, err = streamRw.WriteString(data)
-	if err != nil {
-		return err
-	}
-	err = streamRw.Flush()
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 type Broker struct {
 }
 
@@ -71,20 +21,16 @@ func (b *Broker) startBrokerServer() error {
 		streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 
 		var err error
-		data, err := readFromStream(streamRw)
-		if err != nil {
-			return err
-		}
+		parsedMessage, err := readMessageFromStream(streamRw)
 
 		// Process
-		parsedMessage := b.parseBrokerMessage(data)
-		if parsedMessage != nil {
+		if err == nil && parsedMessage != nil {
 			resp, err := b.processBrokerMessage(parsedMessage)
 			if err != nil {
 				return err
 			}
 			// Write it back
-			err = writeToStream(streamRw, resp)
+			err = writeMessageToStream(streamRw, *resp)
 			if err != nil {
 				return err
 			}
@@ -97,22 +43,20 @@ func (b *Broker) startBrokerServer() error {
 	}
 }
 
-func (b *Broker) parseBrokerMessage(message []byte) *Message {
-	switch message[0] {
-	case ECHO:
-		var st = string(message[1:])
-		return &Message{ECHO: &st}
-	default:
-		return nil
+// Process:
+// - Call inner process function for each message type
+// - Response correct Message
+func (b *Broker) processBrokerMessage(message *Message) (*Message, error) {
+	if message.ECHO != nil {
+		resp, err := b.processEchoMessage(message.ECHO)
+		if err != nil {
+			return nil, err
+		}
+		return &Message{ResponseEcho: &resp}, nil
 	}
+	return nil, nil
 }
 
-func (b *Broker) processBrokerMessage(message *Message) (string, error) {
-	var err error
-	var resp string
-
-	if message.ECHO != nil {
-		resp = fmt.Sprintf("I have receiver: %s", *message.ECHO)
-	}
-	return resp, err
+func (b *Broker) processEchoMessage(echoMessage *string) (string, error) {
+	return fmt.Sprintf("I have receiver: %s", *echoMessage), nil
 }
