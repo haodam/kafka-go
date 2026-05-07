@@ -28,4 +28,4 @@ go.work.sum
 # Editor/IDE
 *.idea/
 # .vscode/
-/kafka
+/kafka-go.exe
