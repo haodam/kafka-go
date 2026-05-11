@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strconv"
 )
 
 func main() {
@@ -15,6 +16,17 @@ func main() {
 		err := broker.startBrokerServer()
 		if err != nil {
 			fmt.Printf("Error starting broker: %v\n", err.Error())
+		}
+	} else if os.Args[1] == "producer" {
+		fmt.Println("Trying to start producer processes")
+		port, err := strconv.ParseInt(os.Args[2], 10, 32)
+		if err != nil {
+			panic(err)
+		}
+		producer := Producer{}
+		err = producer.startProducerServer(int16(port))
+		if err != nil {
+			return
 		}
 	} else {
 		clientConnectTCPAndEcho(10000)

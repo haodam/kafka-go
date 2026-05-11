@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"net"
+	"strconv"
 )
 
 const BrokerPort = 10000
@@ -54,9 +55,50 @@ func (b *Broker) processBrokerMessage(message *Message) (*Message, error) {
 		}
 		return &Message{ResponseEcho: &resp}, nil
 	}
+	if message.ProducerRegister != nil {
+		resp, err := b.processProducerRegisterMessage(message.ProducerRegister)
+		if err != nil {
+			return nil, err
+		}
+		return &Message{ResponseProducerRegister: resp}, nil
+	}
 	return nil, nil
 }
 
 func (b *Broker) processEchoMessage(echoMessage *string) (string, error) {
 	return fmt.Sprintf("I have receiver: %s", *echoMessage), nil
+}
+
+func (b *Broker) processProducerRegisterMessage(pRegMessage *string) (*byte, error) {
+	port, err := strconv.ParseInt(*pRegMessage, 10, 32)
+	if err != nil {
+		return nil, err
+	}
+	go func() {
+		conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Printf("Connected to server at port %v\n", port)
+		// Read input from stdin and write to stream.
+		streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+		for {
+			parsedMessage, err := readMessageFromStream(streamRw)
+			if parsedMessage == nil || err != nil {
+				panic(err)
+			}
+			// Process something here
+			resp, err := b.processBrokerMessage(parsedMessage)
+			if err != nil {
+				panic(err)
+			}
+			err = writeMessageToStream(streamRw, *resp)
+			if err != nil {
+				panic(err)
+			}
+		}
+	}()
+	var resp byte = 0
+	return &resp, err
 }
