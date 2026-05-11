@@ -75,11 +75,7 @@ func (b *Broker) processProducerRegisterMessage(pRegMessage *string) (*byte, err
 		return nil, err
 	}
 	go func() {
-		conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
+		conn, _ := net.Dial("tcp", fmt.Sprintf(":%d", port))
 		fmt.Printf("Connected to server at port %v\n", port)
 		// Read input from stdin and write to stream.
 		streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))

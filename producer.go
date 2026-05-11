@@ -38,15 +38,16 @@ func (b *Producer) sendPortDataToBroker(port int16) error {
 func (b *Producer) startProducerServer(port int16) error {
 	var err error
 
-	err = b.sendPortDataToBroker(port)
-	if err != nil {
-		panic(err)
-	}
-
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		panic(err)
 	}
+
+	err = b.sendPortDataToBroker(port)
+	if err != nil {
+		panic(err)
+	}
+	
 	conn, _ := ln.Accept() // Block until can
 	streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	rd := bufio.NewReader(os.Stdin)

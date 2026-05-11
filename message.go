@@ -47,9 +47,6 @@ func readFromStream(streamRw *bufio.ReadWriter) ([]byte, error) {
 }
 
 func parseMessage(streamMessage []byte) *Message {
-	if len(streamMessage) == 0 {
-		return nil
-	}
 	switch streamMessage[0] {
 	case ECHO:
 		var st = string(streamMessage[1:])
@@ -64,8 +61,8 @@ func parseMessage(streamMessage []byte) *Message {
 		var st = streamMessage[1]
 		return &Message{ResponseProducerRegister: &st}
 	default:
+		return nil
 	}
-	return nil
 }
 
 func readMessageFromStream(streamRW *bufio.ReadWriter) (*Message, error) {
