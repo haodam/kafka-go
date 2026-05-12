@@ -34,7 +34,10 @@ func main() {
 }
 
 func clientConnectTCPAndEcho(port int) {
-	conn, _ := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		panic(err)
+	}
 	fmt.Printf("Connected to server at port %v\n", port)
 	// Read input from stdin and write to stream.
 	rd := bufio.NewReader(os.Stdin)

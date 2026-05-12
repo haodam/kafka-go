@@ -14,7 +14,10 @@ type Producer struct {
 // Connect to Broker to send register
 func (b *Producer) sendPortDataToBroker(port int16) error {
 	var err error
-	conn, _ := net.Dial("tcp", fmt.Sprintf(":%d", BrokerPort))
+	conn, err := net.Dial("tcp", fmt.Sprintf(":%d", BrokerPort))
+	if err != nil {
+		return err
+	}
 	streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	portStr := fmt.Sprintf("%d", port)
 	message := Message{
@@ -29,6 +32,10 @@ func (b *Producer) sendPortDataToBroker(port int16) error {
 	resp, err := readMessageFromStream(streamRw)
 	if err != nil {
 		panic(err)
+	}
+
+	if resp == nil || resp.ResponseProducerRegister == nil {
+		return fmt.Errorf("invalid broker response")
 	}
 
 	fmt.Printf("Receive response from broker: %v\n", *resp.ResponseProducerRegister)
@@ -47,8 +54,11 @@ func (b *Producer) startProducerServer(port int16) error {
 	if err != nil {
 		panic(err)
 	}
-	
-	conn, _ := ln.Accept() // Block until can
+
+	conn, err := ln.Accept() // Block until can
+	if err != nil {
+		panic(err)
+	}
 	streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
 	rd := bufio.NewReader(os.Stdin)
 

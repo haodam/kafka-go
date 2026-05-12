@@ -13,33 +13,55 @@ type Broker struct {
 }
 
 func (b *Broker) startBrokerServer() error {
+	var err error
 	ln, err := net.Listen("tcp", fmt.Sprintf(":%d", BrokerPort))
 	if err != nil {
 		panic(err)
 	}
 	for {
-		conn, _ := ln.Accept() // Block until can
-		streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
-
-		var err error
-		parsedMessage, err := readMessageFromStream(streamRw)
-
-		// Process
-		if err == nil && parsedMessage != nil {
-			resp, err := b.processBrokerMessage(parsedMessage)
-			if err != nil {
-				return err
-			}
-			// Write it back
-			err = writeMessageToStream(streamRw, *resp)
-			if err != nil {
-				return err
-			}
-		}
-
-		err = conn.Close()
+		conn, err := ln.Accept() // Block until can
 		if err != nil {
 			return err
+		}
+		go b.handleConnection(conn)
+	}
+}
+
+func (b *Broker) handleConnection(conn net.Conn) {
+	defer func(conn net.Conn) {
+		err := conn.Close()
+		if err != nil {
+			return
+		}
+	}(conn)
+	streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
+	for {
+		parsedMessage, err := readMessageFromStream(streamRw)
+		if err != nil {
+			fmt.Println("read error:", err)
+			return
+		}
+
+		if parsedMessage == nil {
+			fmt.Println("invalid message")
+			return
+		}
+
+		resp, err := b.processBrokerMessage(parsedMessage)
+		if err != nil {
+			fmt.Println("process error:", err)
+			return
+		}
+
+		if resp == nil {
+			fmt.Println("nil response")
+			return
+		}
+
+		err = writeMessageToStream(streamRw, *resp)
+		if err != nil {
+			fmt.Println("write error:", err)
+			return
 		}
 	}
 }
@@ -75,7 +97,10 @@ func (b *Broker) processProducerRegisterMessage(pRegMessage *string) (*byte, err
 		return nil, err
 	}
 	go func() {
-		conn, _ := net.Dial("tcp", fmt.Sprintf(":%d", port))
+		conn, err := net.Dial("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			panic(err)
+		}
 		fmt.Printf("Connected to server at port %v\n", port)
 		// Read input from stdin and write to stream.
 		streamRw := bufio.NewReadWriter(bufio.NewReader(conn), bufio.NewWriter(conn))
