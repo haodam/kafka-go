@@ -15,11 +15,13 @@ const (
 )
 
 type Message struct {
-	ECHO             *string
-	ProducerRegister *string
+	ECHO                    *string
+	ProducerRegister        *string
+	ProducerRegisterMessage []byte
 	//RESPONSE
 	ResponseEcho             *string
 	ResponseProducerRegister *byte // 0 -> 7
+	ResponseProducerMessage  []byte
 	//Other type here...
 }
 
@@ -52,7 +54,9 @@ func parseMessage(streamMessage []byte) *Message {
 	}
 	switch streamMessage[0] {
 	case ECHO:
+		fmt.Printf("%p\n", streamMessage)
 		var st = string(streamMessage[1:])
+		fmt.Printf("%p\n", &st)
 		return &Message{ECHO: &st}
 	case ResponseEcho:
 		var st = string(streamMessage[1:])
