@@ -72,9 +72,9 @@ func (b *Producer) startProducerServer(port int16) error {
 				// Probably panic here
 			}
 		}
-		// Write ECHO
+		// Write ProducerConsumerMessage
 		err = writeMessageToStream(streamRw, Message{
-			ECHO: &line,
+			ProducerConsumerMessage: []byte(line),
 		})
 		if err != nil {
 			break
@@ -85,7 +85,7 @@ func (b *Producer) startProducerServer(port int16) error {
 			break
 		}
 
-		fmt.Printf("Receive message from broker: %s\n", *resp.ResponseEcho)
+		fmt.Printf("Receive producer consumer message from broker: %d\n", *resp.ResponseProducerConsumerMessage)
 
 	}
 	err = conn.Close()

@@ -12,7 +12,10 @@ import (
 func main() {
 	fmt.Println(os.Args)
 	if os.Args[1] == "server" {
-		var broker = Broker{}
+		var broker = Broker{
+			mq: Queue{},
+		}
+		broker.mq.init()
 		err := broker.startBrokerServer()
 		if err != nil {
 			fmt.Printf("Error starting broker: %v\n", err.Error())

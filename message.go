@@ -6,22 +6,24 @@ import (
 )
 
 const (
-	ECHO             = 1
-	ProducerRegister = 2
+	ECHO                    = 1
+	ProducerRegister        = 2
+	ProducerConsumerMessage = 3
 
-	//ACK
-	ResponseEcho             = 101
-	ResponseProducerRegister = 102
+	// ResponseEcho Response
+	ResponseEcho                    = 101
+	ResponseProducerRegister        = 102
+	ResponseProducerConsumerMessage = 103
 )
 
 type Message struct {
 	ECHO                    *string
 	ProducerRegister        *string
-	ProducerRegisterMessage []byte
+	ProducerConsumerMessage []byte // nil-able
 	//RESPONSE
-	ResponseEcho             *string
-	ResponseProducerRegister *byte // 0 -> 7
-	ResponseProducerMessage  []byte
+	ResponseEcho                    *string
+	ResponseProducerRegister        *byte // 0 -> 7
+	ResponseProducerConsumerMessage *byte
 	//Other type here...
 }
 
@@ -54,9 +56,9 @@ func parseMessage(streamMessage []byte) *Message {
 	}
 	switch streamMessage[0] {
 	case ECHO:
-		fmt.Printf("%p\n", streamMessage)
+		//fmt.Printf("%p\n", streamMessage)
 		var st = string(streamMessage[1:])
-		fmt.Printf("%p\n", &st)
+		//fmt.Printf("%p\n", &st)
 		return &Message{ECHO: &st}
 	case ResponseEcho:
 		var st = string(streamMessage[1:])
@@ -67,6 +69,11 @@ func parseMessage(streamMessage []byte) *Message {
 	case ResponseProducerRegister:
 		var st = streamMessage[1]
 		return &Message{ResponseProducerRegister: &st}
+	case ProducerConsumerMessage:
+		return &Message{ProducerConsumerMessage: streamMessage[1:]}
+	case ResponseProducerConsumerMessage:
+		var st = streamMessage[1]
+		return &Message{ResponseProducerConsumerMessage: &st}
 	default:
 		return nil
 	}
@@ -123,6 +130,17 @@ func writeMessageToStream(streamRW *bufio.ReadWriter, message Message) error {
 	if message.ResponseProducerRegister != nil {
 		data := fmt.Sprintf("%d", *message.ResponseProducerRegister)
 		if err := writeDataToStreamWithType(streamRW, ResponseProducerRegister, data); err != nil {
+			return err
+		}
+	}
+	if message.ProducerConsumerMessage != nil {
+		if err := writeDataToStreamWithType(streamRW, ProducerConsumerMessage, string(message.ProducerConsumerMessage)); err != nil {
+			return err
+		}
+	}
+	if message.ResponseProducerConsumerMessage != nil {
+		data := fmt.Sprintf("%d", *message.ResponseProducerConsumerMessage)
+		if err := writeDataToStreamWithType(streamRW, ResponseProducerConsumerMessage, data); err != nil {
 			return err
 		}
 	}

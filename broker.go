@@ -10,6 +10,7 @@ import (
 const BrokerPort = 10000
 
 type Broker struct {
+	mq Queue
 }
 
 func (b *Broker) startBrokerServer() error {
@@ -84,7 +85,20 @@ func (b *Broker) processBrokerMessage(message *Message) (*Message, error) {
 		}
 		return &Message{ResponseProducerRegister: resp}, nil
 	}
+	if message.ProducerConsumerMessage != nil {
+		resp, err := b.processProducerConsumerMessage(message.ProducerConsumerMessage)
+		if err != nil {
+			return nil, err
+		}
+		return &Message{ResponseProducerConsumerMessage: &resp}, nil
+	}
 	return nil, nil
+}
+
+func (b *Broker) processProducerConsumerMessage(pcm []byte) (byte, error) {
+	b.mq.push(pcm)
+	b.mq.debug()
+	return 0, nil
 }
 
 func (b *Broker) processEchoMessage(echoMessage *string) (string, error) {
