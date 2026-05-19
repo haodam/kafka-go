@@ -10,7 +10,11 @@ import (
 const BrokerPort = 10000
 
 type Broker struct {
-	mq Queue
+	topics []Topic
+}
+
+func (b *Broker) init() {
+	b.topics = make([]Topic, 0)
 }
 
 func (b *Broker) startBrokerServer() error {

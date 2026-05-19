@@ -18,7 +18,7 @@ const (
 
 type Message struct {
 	ECHO                    *string
-	ProducerRegister        *string
+	ProducerRegister        *ProducerRegisterMessage
 	ProducerConsumerMessage []byte // nil-able
 	//RESPONSE
 	ResponseEcho                    *string
@@ -27,6 +27,35 @@ type Message struct {
 	//Other type here...
 }
 
+type ProducerRegisterMessage struct {
+	port    uint16
+	topicID uint16
+}
+
+func (m *ProducerRegisterMessage) fromByte(streamMessage []byte) {
+	// First 2 bytes: port
+	// Next 2 bytes: topicID
+	m.port = uint16(streamMessage[0])<<8 + uint16(streamMessage[1])
+	m.topicID = uint16(streamMessage[2])<<8 + uint16(streamMessage[3])
+}
+
+func (m *ProducerRegisterMessage) toByte() []byte {
+	var data [4]byte
+	// First 2 bytes: port
+	// Next 2 bytes: topicID
+
+	// 244 131
+	data[0] = byte(m.port >> 8)
+	data[1] = byte(m.port % 256)
+
+	data[2] = byte(m.topicID >> 8)
+	data[3] = byte(m.topicID % 256)
+	return data[0:4]
+}
+
+// Message format:
+// - stream[0]: size
+// -> stream[1:]: []byte
 func readFromStream(streamRw *bufio.ReadWriter) ([]byte, error) {
 	var err error
 	// Read
@@ -64,8 +93,9 @@ func parseMessage(streamMessage []byte) *Message {
 		var st = string(streamMessage[1:])
 		return &Message{ResponseEcho: &st}
 	case ProducerRegister:
-		var st = string(streamMessage[1:])
-		return &Message{ProducerRegister: &st}
+		p := ProducerRegisterMessage{}
+		p.fromByte(streamMessage[1:])
+		return &Message{ProducerRegister: &p}
 	case ResponseProducerRegister:
 		var st = streamMessage[1]
 		return &Message{ResponseProducerRegister: &st}
@@ -123,7 +153,8 @@ func writeMessageToStream(streamRW *bufio.ReadWriter, message Message) error {
 		}
 	}
 	if message.ProducerRegister != nil {
-		if err := writeDataToStreamWithType(streamRW, ProducerRegister, *message.ProducerRegister); err != nil {
+		data := string(message.ProducerRegister.toByte())
+		if err := writeDataToStreamWithType(streamRW, ProducerRegister, data); err != nil {
 			return err
 		}
 	}
